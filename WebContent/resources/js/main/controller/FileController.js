@@ -1,0 +1,345 @@
+/** The FileController works mainly as a coordinator between FileModel and FileView to get and forward data 
+ * and actions. During that process it also passes map relevant parts of the content to the MapController.
+ *
+ * @param FileView The FileView to be set.
+ * @param HeaderView The HeaderView to be set.
+ * @param MapController The MapController to be set.
+ */
+function FileController(FileView, HeaderView, MapController) {
+		/**The FileView to be used.*/
+		this.FileView = FileView;
+		/**The HeaderView to be used.*/
+		this.HeaderView = HeaderView;
+		/**The MapController to be used.*/
+		this.MapController = MapController;
+		/** The title of the currently chosen file.*/
+		this.file = '';
+		/** Represents the current parse result.*/
+		this.parseResult = {};
+	}	
+	
+	/** The FileController prototype.*/
+	FileController.prototype = {
+			
+			/** Initializes the basic file functions and binds the view elements to their corresponding functionalities.
+			 */
+			init: function() {
+				var self = this;
+				var uploader = new qq.FileUploaderBasic({
+				  	button: document.getElementById(this.FileView.uploaderId),
+				   	action: 'upload',
+				   	debug: true,
+				   	onComplete: function() {
+				   		self.getAvailableFiles();
+				   	},
+				}); 
+				this.getAvailableFiles();
+				this.activateFileView();
+				this.activateRecordView();
+				this.bindDeleteAction();
+				this.bindDownloadAction();
+				this.bindAvailableFiles();
+				this.bindParsingAction();
+			},
+			
+			/** Sets the currently chosen file to work on.
+			 */
+			setFile: function () {
+				var $selectedFile = $('#' + this.FileView.availableFilesId).val();		
+				$('#' + this.FileView.currentFileId).val($selectedFile);
+				this.file = $selectedFile;
+			},
+			
+			/** Gets the titles of all currently available files and calls the view
+			 * to set them. 
+			 */
+			getAvailableFiles: function() {
+				var self = this;
+				$.post("check", function(responseText) {
+					self.FileView.setAvailableFiles(responseText);
+					self.setFile();
+		    	});
+			},
+			
+			/** Calls the current file action, depending on the given action value.
+			 * 
+			 * @param action The action to process.
+			 * @param callback The callback function to process after the done action.
+			 * @param dataToEdit The data to use for the action.
+			 */
+			action: function(action, callback, dataToEdit) {
+				var self = this;
+				self.setFile();
+				var data = {'file':self.file}
+				if (action === 'edit' | action === 'remove') {
+					data = dataToEdit;
+					data['file'] = self.file;
+				}				
+		 		if (action === 'download') {
+		 			var $download = document.getElementById(action);
+		 			$download.setAttribute('href', action + "?file=" + self.file);
+		 		} else {	
+		 			$.ajax({
+		  				type: 'POST',
+		  				url: action,
+		  				data: data,
+		  				context: this,
+		  				success: function(response){								
+		  					if (action === 'parse' | action === 'edit' | action === 'remove') {	
+		  						if (action === 'parse') {
+		  							this.parseResult = response;		
+		  						}
+		  						if (action === 'edit' | action === 'remove') {
+		  							this.editResult = response;
+		  						}
+		  						callback(response);
+		  					} else {
+		  						this.getAvailableFiles();
+		  					}	
+		  				}
+		  			});
+		  		}
+			},
+			
+			/**Binds the function for deleting a file to the corresponding view-element.
+			 */
+			bindDeleteAction: function() {
+				var self = this;
+				$('#' + self.FileView.deleteId).on('click', function() {
+					self.action('delete');
+				});
+			},
+			
+			/**Binds the function for downloading a file to the corresponding view-element.
+			 */
+			bindDownloadAction: function() {
+				var self = this;
+				$('#' + self.FileView.downloadId).on('click', function() {
+					self.action('download');
+				})
+			},
+			
+			/**Binds the function for parsing a file to the corresponding view-element.
+			 */
+			bindParsingAction: function() {
+				var self = this;
+				var responseFunction = (function(response){
+					self.setParseResponse(response);
+				}).bind(this);
+				$('#' + self.FileView.parserId).on('click', function() {      
+					self.MapController.clearActionFeatures();
+					self.FileView.prepareParsing();	
+					self.action('parse', responseFunction);		
+				});	 
+			},
+			
+			/**Binds the function for getting the titles of all available files to the corresponding view-element.
+			 */
+			bindAvailableFiles: function() {
+				var self = this;
+				$('#' + self.FileView.availableFilesId).on('change', function() {
+					self.setFile();
+				});
+		  	},
+		  	
+		  	/** Delegates the given parse result to FileView and MapController.
+		  	 * 
+		  	 * @param response The parse result.
+		  	 */
+		  	setParseResponse: function(response) {
+		  		var self = this;
+		  		self.FileView.setParseResponse(response);
+				$.each(response, function(index, monument) {       
+					self.MapController.preventDoubledFeatures(monument);	        
+					self.FileView.createContentRow(index);
+					var string = self.delegateRowInfos(monument, $('#geo' + index), $('#point' + index), $('#info-text' + index));	       
+				    $('#row' + index).text((index + 1) + ": " + string);
+				    var id = monument['recId'];
+				    self.setSelectedField(index, string, $('#point' + index).clone(), $('#geo' + index).clone(), id, $('#info-text' + index).clone());	
+				});
+				self.MapController.countMonuments();
+				self.MapController.setMapView();
+		  	},	
+			
+			/**Gets the complete current parse result.
+			 */
+		  	getParseResult: function() {
+				return this.parseResult;
+			},
+			
+			/**Gets the current parse result of a single dataset by index.
+			 * 
+			 * @param index The index value of the dataset to get.
+			 * @returns The parsed dataset at the given index.
+			 */
+			getParseResultByIndex: function(index) {
+				return this.parseResult[index];
+			},
+			
+			/**Gets the title of the currently chosen file.
+			 * 
+			 * @returns {String} A string with the title of the chosen file.
+			 */
+			getWorkingfileName: function() {
+				return this.file;
+			},
+					
+			/**Binds the function for setting the files-view to the corresponding view-element.
+			 */
+			activateFileView: function() {
+				var self = this;
+				$('#' + self.HeaderView.fileViewId).on('click', function() {
+					self.FileView.setFileView();
+	  			});
+	  		},
+	  		
+	  		/**Binds the function for setting the records-view to the corresponding view-element. 
+	  		 */
+	  		activateRecordView: function() {
+	  			var self = this;
+	  			$('#' + self.HeaderView.recordViewId).on('click', function() {
+	  				self.FileView.setRecordView();
+	  			});
+	  		},	
+	  		
+	  		/** Gets the data to edit according to the given index value, activates the editing
+	  		 * and sets the callback function to process after the editing.
+	  		 * 
+	  		 * @param index The index value of the dataset to edit.
+	  		 */
+	  		editFile: function(index) {			
+	  			var self = this;
+	  			var data = this.MapController.getEditData();
+	  	  		data['index'] = index;
+	  	  		data['overwrite'] = ($('#locker').attr("class") === "fa-unlock-alt fa");
+	  	  		var editFunction = (function(response) {
+	  	  			self.FileView.setEditResponse(response);
+	  	  			self.MapController.setEditResponse(response); 	
+	  	  		}).bind(self);
+	  	  		self.action('edit', editFunction, data);
+	  	  	},
+	  	  	
+	  	  	/** Binds the element with the given editButtonID to the edit action for
+	  	  	 * the content with the given index value.
+	  	  	 * 
+	  	  	 * @param editButtonID The id of the view element to process an edit action.
+	  	  	 * @param index The index value of the dataset to edit.
+	  	  	 */
+	  	  	bindEditAction: function(editButtonID, index) {
+	  	  		var self = this;
+	  	  		$(editButtonID).click(function(){
+	  	  	  		self.editFile(index);  	  		
+	  	  	  	});
+	  	  	},
+	  	  	
+	  	  	/** Binds the element with the given mapButtonID to a map zoom action for
+	  	  	 * the feature with the given id.
+	  	  	 * 
+	  	  	 * @param mapButtonID The id of the view element to process a selected zoom action.
+	  	  	 * @param id The id of the feature to zoom to.
+	  	  	 */
+	  	  	bindMapAction: function(mapButtonID, id) {  	
+	  	  	  	var self = this;
+	  	  		$(mapButtonID).click(function() {	
+	  	  			self.MapController.setFeatureView(id);
+	  	  	  	});
+	  	  	}, 
+	  	  	
+	  	  	/** Binds the element with the given deleteButtonID to the delete action for
+	  	  	 * the content with the given index value.
+	  	  	 * 
+	  	  	 * @param deleteButtonID The id of the view element to process a delete action.
+	  	  	 * @param index The index value of the dataset to change.
+	  	  	 */
+	  	  	bindGeoDeleteAction: function(deleteButtonID, index) {
+	  	  	  	var self = this;
+	  	  	  	var editFunction = (function(response) {
+	  	  	  		self.FileView.setEditResponse(response);
+	  	  	  		self.MapController.setEditResponse(response); 	
+	  	  	  	}).bind(self);
+	  	  		$(deleteButtonID).click(function() {
+	  	  	  		var overwrite = ($('#locker').attr("class") === "fa-unlock-alt fa");
+	  	  	  		var file = self.getWorkingfileName();
+	  	  	  		var data = {'file': file, 'index': index, 'overwrite': overwrite};
+	  	  	  		if (data.overwrite === true) {
+	  	  	  			self.action('remove', editFunction, data);
+	  	  	  		}	
+	  	  	  	}); 	
+	  	  	},
+	  	  	
+	  	  	/** Binds the element with the given searchButtonID to the search action for
+	  	  	 * the content with the given index value.
+	  	  	 * 
+	  	  	 * @param searchButtonID The id of the view element to start a search action.
+	  	  	 * @param index The index value of the dataset to start a search for.
+	  	  	 */
+	  	  	bindSearchAction: function(searchButtonID, index) {
+	  	  		var self = this;
+	  	  		var responseFunction = (function(response) {
+	  	  			self.MapController.setOsmResponse(response);
+	  	  		}).bind(self);
+	  	  		$(searchButtonID).click(function() {
+	  	  			var content = self.getParseResultByIndex(index);
+	  	  			self.MapController.getOsmData(index, content, responseFunction);
+	  	  		});
+	  	  	},
+	  	  	
+	  	  	/** Activates the FileView and MapController to set the Views according
+	  	  	 * to the selected data and binds the created view elements to their actions.
+	  	  	 * 
+	  	  	 * @param index The index value of the selected data.
+	  	  	 * @param string The text content of the selected data.
+	  	  	 * @param point The element for representing info about the point coordinates
+	  	  	 * of the selected element.
+	  	  	 * @param poly The element for representing info about the geometry coordinates
+	  	  	 * of the selected element.
+	  	  	 * @param id The id of the selected data.
+	  	  	 * @param row The selected row.
+	  	  	 */
+	  	  	setSelectedField: function(index, string, point, poly, id, row){
+	  	  		var self = this;
+	  	  		$('#li' + index).click(function(){
+	  	  			self.MapController.clearActionFeatures();
+	  	  			self.FileView.setSelectionView(); 			
+	  	  			self.FileView.createSelectedField(point, poly, row);	  		  				
+	  	  			self.bindEditAction('#edit-button', index);
+	  	  			self.bindMapAction('#map-button', id);
+	  	  			self.bindGeoDeleteAction('#delete-button', index);	  	
+	  	  			self.bindSearchAction('#search-button', index);
+	  	  			self.MapController.setOsmInfoView();
+	  	  			self.MapController.setFeatureView(id);
+	  	  		});
+	  	  	},
+	  	  	
+	  	  	/** Delegates the given content to the FileView and MapController
+	  	  	 * and filters the remaining content for further processing.
+	  	  	 * 
+	  	  	 * @param monument An object, that holds all available info of a monument dataset.
+	  	  	 * @param $poly A view-object, that represents the info about the geometry coordinates of the monument.
+	  	  	 * @param $point  A view-object, that represents the info about the point coordinates of the monument.
+	  	  	 * @param $infoText A view-object, that represents the description of the monument.
+	  	  	 * @returns A string with textual info about the given monument, except the description text.
+	  	  	 */
+	  	  	delegateRowInfos: function(monument, $poly, $point, $infoText) {
+	  	  		var self = this;
+	  	  		var infoArray = new Array();
+	  	  		$.each(monument, function(key, value) {
+	  	  			if (key === "hasPoly") {
+	  	  				self.FileView.toggleBtnDangerSuccess($poly, value);
+	  	  				self.FileView.toggleBtnDangerSuccess($('#selection-geo'), value);
+	  	  			} else if (key === "hasPoint") {
+	  	  				self.FileView.toggleBtnDangerSuccess($point, value);
+	  	  				self.FileView.toggleBtnDangerSuccess($('#selection-point'), value);
+	  	  			}	else if ((key === "coordinates" | key === "geometry") && monument['srs'] !== "") { 		
+	  	  				self.MapController.createFeature(monument['recId'], key, value, monument['srs'], monument['srsGeo']);				
+	  	  			} else if (value !== "" && key !== 'srs' && key !== 'srsGeo') {
+	  	  				if (key === 'description') {
+	  	  					$('<p>').text(value).appendTo($infoText);    					
+	  	  				} else if (value != 'true' && value != 'false'){
+	  	  					infoArray.push(value);
+	  	  				}	
+	  	  			}
+	  	  		});
+	  	  		return infoArray.join(' - ');	 
+	  	  	}
+		};

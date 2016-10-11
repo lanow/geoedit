@@ -1,0 +1,54 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Geo Edit</title>	
+	
+		<link type="text/css" rel="stylesheet" href="./resources/css/ol.css"/>
+		<link type="text/css" rel="stylesheet" href="./resources/css/bootstrap.min.3.3.7.css">
+		<link type="text/css" rel="stylesheet" href="./resources/css/fileuploader.css">
+		<link type="text/css" rel="stylesheet" href="./resources/css/geoedit.css">	
+		<link type="text/css" rel="stylesheet" href="./resources/css/font-awesome-4.6.3/css/font-awesome.css">	
+			
+		<script type="text/javascript" src="./resources/js/main/external/jquery-3.1.0.min.js"></script>
+		<script type="text/javascript" src="./resources/js/main/external/bootstrap.3.3.7.js"></script>
+		<script type="text/javascript" src="./resources/js/main/external/ol.js"></script>	
+		<script type="text/javascript" src="./resources/js/main/external/proj4.js"></script>		
+		<script type="text/javascript" src="./resources/js/main/external/fileuploader.js"></script>		
+	
+		<script type="text/javascript" src="./resources/js/main/model/MapModel.js"></script>		
+	
+		<script type="text/javascript" src="./resources/js/main/controller/FileController.js"></script>
+		<script type="text/javascript" src="./resources/js/main/controller/OsmController.js?foo=1"></script>		
+		<script type="text/javascript" src="./resources/js/main/controller/MapController.js"></script>		
+		
+		<script type="text/javascript" src="./resources/js/main/view/geoStyles.js"></script>		
+		<script type="text/javascript" src="./resources/js/main/view/HeaderView.js"></script>	
+		<script type="text/javascript" src="./resources/js/main/view/FileView.js"></script>	
+		<script type="text/javascript" src="./resources/js/main/view/OsmView.js"></script>	
+		<script type="text/javascript" src="./resources/js/main/view/MapView.js"></script>
+	</head>
+
+	<body >	
+		<div class="container" style="height:85%; width:100%">		
+			<nav class="navbar navbar-default" id="header"></nav>		
+			<div class="row-fluid">
+				<!-- META -->
+				<div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 panel panel-default">		            		
+            		<div class="panel-body">
+            			<div class="nav-collapse collapse file-handler" id="file-handler"></div>
+						<div class="nav-collapse collapse content-handler" id="content-handler"></div>		
+						<div class="nav-collapse collapse selection-handler" id="selection-handler"></div>
+					</div>					
+				</div>
+							
+				<!-- MAP -->		
+				<div class="col-lg-8 col-md-8 col-sm-8 col-xs-8 panel panel-default"> 			
+					<div class="map panel-body" id="map-handler">								
+					</div>	
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript" src="./resources/js/main/main.js"></script>
+	</body>
+</html>
